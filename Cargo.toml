@@ -1,0 +1,8 @@
+[package]
+edition = "2018"
+name = "sxd_html"
+version = "0.1.0"
+
+[dependencies]
+html5ever = "0.25"
+sxd-document = "0.3"
