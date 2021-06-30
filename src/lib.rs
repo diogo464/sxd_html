@@ -1,17 +1,17 @@
 mod error;
 mod handle;
+mod util;
 
 pub use error::Error;
+pub(crate) use handle::Handle;
 
-use handle::Handle;
 use html5ever::{
     tendril::Tendril,
     tree_builder::{NodeOrText, TreeSink},
-    QualName,
 };
 use sxd_document::{
-    dom::{ChildOfElement, ChildOfRoot, Document, ParentOfChild},
-    Package, QName,
+    dom::{ChildOfElement, Document},
+    Package,
 };
 
 #[derive(Debug)]
@@ -63,11 +63,11 @@ impl<'a, 'd> TreeSink for DocHtmlSink<'a, 'd> {
         attrs: Vec<html5ever::Attribute>,
         _flags: html5ever::tree_builder::ElementFlags,
     ) -> Self::Handle {
-        let qname = qualname_as_qname(&name);
+        let qname = util::qualname_as_qname(&name);
         let elem = self.document.create_element(qname);
 
         for attr in attrs {
-            let qname = qualname_as_qname(&attr.name);
+            let qname = util::qualname_as_qname(&attr.name);
             elem.set_attribute_value(qname, attr.value.as_ref());
         }
 
@@ -101,7 +101,7 @@ impl<'a, 'd> TreeSink for DocHtmlSink<'a, 'd> {
         match parent {
             Handle::Document(root) => {
                 // text cant be appended to root so no need to concatenate it
-                let child = node_or_text_into_child_of_root(child);
+                let child = util::node_or_text_into_child_of_root(child);
                 root.append_child(child);
             }
             Handle::Element(elem, _) => {
@@ -115,7 +115,7 @@ impl<'a, 'd> TreeSink for DocHtmlSink<'a, 'd> {
                     }
                     (_, child) => {
                         let document = elem.document();
-                        let child = node_or_text_into_child_of_element(&document, child);
+                        let child = util::node_or_text_into_child_of_element(&document, child);
                         elem.append_child(child);
                     }
                 }
@@ -172,10 +172,10 @@ impl<'a, 'd> TreeSink for DocHtmlSink<'a, 'd> {
         };
 
         for child in children.iter() {
-            child_of_element_remove_from_parent(child);
+            util::child_of_element_remove_from_parent(child);
         }
 
-        parent_of_child_append_node_or_text(&parent, new_node);
+        util::parent_of_child_append_node_or_text(&parent, new_node);
         let parent_handle = Handle::from(parent);
         for child in children {
             let node_or_text = match child {
@@ -190,7 +190,7 @@ impl<'a, 'd> TreeSink for DocHtmlSink<'a, 'd> {
     fn add_attrs_if_missing(&mut self, target: &Self::Handle, attrs: Vec<html5ever::Attribute>) {
         let elem = target.element_ref();
         for attr in attrs {
-            let qname = qualname_as_qname(&attr.name);
+            let qname = util::qualname_as_qname(&attr.name);
             if elem.attribute_value(qname).is_some() {
                 continue;
             }
@@ -210,58 +210,6 @@ impl<'a, 'd> TreeSink for DocHtmlSink<'a, 'd> {
         let children = node.children();
         node.clear_children();
         new_parent.append_children(children);
-    }
-}
-
-fn qualname_from_qname(qname: QName) -> QualName {
-    QualName::new(
-        None,
-        qname.namespace_uri().unwrap_or_default().into(),
-        qname.local_part().into(),
-    )
-}
-
-fn qualname_as_qname(qualname: &QualName) -> QName {
-    let ns = if qualname.ns.is_empty() {
-        None
-    } else {
-        Some(qualname.ns.as_ref())
-    };
-    QName::with_namespace_uri(ns, qualname.local.as_ref())
-}
-
-fn node_or_text_into_child_of_root(node_or_text: NodeOrText<Handle>) -> ChildOfRoot {
-    match node_or_text {
-        NodeOrText::AppendNode(handle) => ChildOfRoot::from(handle),
-        NodeOrText::AppendText(_) => panic!("Text cannot be made into ChildOfRoot"),
-    }
-}
-
-fn node_or_text_into_child_of_element<'d>(
-    document: &Document<'d>,
-    node_or_text: NodeOrText<Handle<'d>>,
-) -> ChildOfElement<'d> {
-    match node_or_text {
-        NodeOrText::AppendNode(handle) => ChildOfElement::from(handle),
-        NodeOrText::AppendText(text) => ChildOfElement::from(document.create_text(text.as_ref())),
-    }
-}
-
-fn child_of_element_remove_from_parent(coe: &ChildOfElement) {
-    match coe {
-        ChildOfElement::Element(x) => x.remove_from_parent(),
-        ChildOfElement::Text(x) => x.remove_from_parent(),
-        ChildOfElement::Comment(x) => x.remove_from_parent(),
-        ChildOfElement::ProcessingInstruction(x) => x.remove_from_parent(),
-    }
-}
-
-fn parent_of_child_append_node_or_text(poc: &ParentOfChild, noe: NodeOrText<Handle>) {
-    match poc {
-        ParentOfChild::Root(r) => r.append_child(node_or_text_into_child_of_root(noe)),
-        ParentOfChild::Element(e) => {
-            e.append_child(node_or_text_into_child_of_element(&e.document(), noe))
-        }
     }
 }
 
