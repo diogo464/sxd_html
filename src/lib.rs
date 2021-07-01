@@ -132,12 +132,20 @@ impl<'d> TreeSink for DocHtmlSink<'d> {
 
     fn append_based_on_parent_node(
         &mut self,
-        _element: &Self::Handle,
-        _prev_element: &Self::Handle,
-        _child: html5ever::tree_builder::NodeOrText<Self::Handle>,
+        element: &Self::Handle,
+        prev_element: &Self::Handle,
+        child: NodeOrText<Self::Handle>,
     ) {
-        // I dont understand this one
-        unimplemented!()
+        // https://github.com/servo/html5ever/blob/master/rcdom/lib.rs#L348
+
+        let parent = element.parent();
+        let has_parent = parent.is_some();
+
+        if has_parent {
+            self.append_before_sibling(element, child);
+        } else {
+            self.append(prev_element, child);
+        }
     }
 
     fn append_doctype_to_document(
