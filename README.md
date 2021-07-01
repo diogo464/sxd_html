@@ -1,5 +1,5 @@
 # sxd_html
-Uses the `html5ever` to parse html convert it to a `sxd_document::Package` to use with `sxd_xpath`.
+Uses the `html5ever` to parse html and convert it to a `sxd_document::Package` to use with `sxd_xpath`.
 ## Example
 ```rust
 use sxd_xpath::{nodeset::Node, Context, Error, Factory, Value};
