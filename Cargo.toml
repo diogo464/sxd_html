@@ -6,3 +6,8 @@ version = "0.1.0"
 [dependencies]
 html5ever = "0.25"
 sxd-document = "0.3"
+
+[dev-dependencies]
+anyhow = "1.0"
+reqwest = { version="0.11", features=["blocking"] }
+sxd-xpath = "0.4"
