@@ -1,7 +1,8 @@
 #[test]
 fn parse_simple() {
     let contents = "<!DOCTYPE html><html><div>hello<br>bye</div></html>";
-    let package = sxd_html::parse_html(contents).unwrap();
+    let (package, errors) = sxd_html::parse_html_with_errors(contents);
+    assert_eq!(0, errors.len());
 
     let root = package.as_document().root();
     let root = root.children()[0]

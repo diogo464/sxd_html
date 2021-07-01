@@ -15,34 +15,40 @@ use sxd_document::{
 };
 
 #[derive(Debug)]
-struct DocHtmlSink<'a, 'd> {
+struct DocHtmlSink<'d> {
     document: Document<'d>,
     document_handle: Handle<'d>,
-    error: &'a mut Option<Error>,
+    errors: Vec<Error>,
+    current_line: u64,
 }
 
-impl<'a, 'd> DocHtmlSink<'a, 'd> {
-    fn new(document: Document<'d>, error: &'a mut Option<Error>) -> Self {
+impl<'d> DocHtmlSink<'d> {
+    fn new(document: Document<'d>) -> Self {
         let document_handle = Handle::Document(document.root());
 
         Self {
             document,
             document_handle,
-            error,
+            errors: Default::default(),
+            current_line: 0,
         }
     }
 }
 
-impl<'a, 'd> TreeSink for DocHtmlSink<'a, 'd> {
+impl<'d> TreeSink for DocHtmlSink<'d> {
     type Handle = Handle<'d>;
-    type Output = Document<'d>;
+    type Output = Vec<Error>;
+
+    fn set_current_line(&mut self, line_number: u64) {
+        self.current_line = line_number;
+    }
 
     fn finish(self) -> Self::Output {
-        self.document
+        self.errors
     }
 
     fn parse_error(&mut self, msg: std::borrow::Cow<'static, str>) {
-        *self.error = Some(Error::new(msg))
+        self.errors.push(Error::new(self.current_line, msg));
     }
 
     fn get_document(&mut self) -> Self::Handle {
@@ -213,15 +219,18 @@ impl<'a, 'd> TreeSink for DocHtmlSink<'a, 'd> {
     }
 }
 
-pub fn parse_html(contents: &str) -> Result<Package, Error> {
+pub fn parse_html(contents: &str) -> Package {
+    parse_html_with_errors(contents).0
+}
+
+pub fn parse_html_with_errors(contents: &str) -> (Package, Vec<Error>) {
     use html5ever::driver::ParseOpts;
     use html5ever::tendril::TendrilSink;
     use html5ever::tree_builder::TreeBuilderOpts;
 
     let package = Package::new();
     let document = package.as_document();
-    let mut error = None;
-    let sink = DocHtmlSink::new(document, &mut error);
+    let sink = DocHtmlSink::new(document);
 
     let opts = ParseOpts {
         tree_builder: TreeBuilderOpts {
@@ -232,11 +241,7 @@ pub fn parse_html(contents: &str) -> Result<Package, Error> {
         ..Default::default()
     };
     let parser = html5ever::parse_document(sink, opts);
-    parser.one(contents);
+    let errors = parser.one(contents);
 
-    if let Some(error) = error {
-        return Err(error);
-    }
-
-    Ok(package)
+    (package, errors)
 }
