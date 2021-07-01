@@ -58,7 +58,7 @@ impl<'d> TreeSink for DocHtmlSink<'d> {
     // this is only called on elements
     fn elem_name<'h>(&'h self, target: &'h Self::Handle) -> html5ever::ExpandedName<'h> {
         match target {
-            Handle::Element(_, qualname) => qualname.expanded(),
+            Handle::Element(_, qualname, _) => qualname.expanded(),
             _ => panic!("not an element"),
         }
     }
@@ -67,7 +67,7 @@ impl<'d> TreeSink for DocHtmlSink<'d> {
         &mut self,
         name: html5ever::QualName,
         attrs: Vec<html5ever::Attribute>,
-        _flags: html5ever::tree_builder::ElementFlags,
+        flags: html5ever::tree_builder::ElementFlags,
     ) -> Self::Handle {
         let qname = util::qualname_as_qname(&name);
         let elem = self.document.create_element(qname);
@@ -77,7 +77,7 @@ impl<'d> TreeSink for DocHtmlSink<'d> {
             elem.set_attribute_value(qname, attr.value.as_ref());
         }
 
-        Handle::Element(elem, name)
+        Handle::Element(elem, name, flags.template)
     }
 
     fn create_comment(&mut self, text: html5ever::tendril::StrTendril) -> Self::Handle {
@@ -110,7 +110,7 @@ impl<'d> TreeSink for DocHtmlSink<'d> {
                 let child = util::node_or_text_into_child_of_root(child);
                 root.append_child(child);
             }
-            Handle::Element(elem, _) => {
+            Handle::Element(elem, _, _) => {
                 let last = elem.children().into_iter().last();
 
                 match (last, child) {
@@ -149,11 +149,12 @@ impl<'d> TreeSink for DocHtmlSink<'d> {
         // ignored, cant seem to find a way to add doctype using sxd_document
     }
 
-    fn get_template_contents(&mut self, _target: &Self::Handle) -> Self::Handle {
-        // dont understand this
-        // it seems to just return the document
-        // https://github.com/servo/html5ever/blob/master/rcdom/lib.rs#L232
-        unimplemented!()
+    fn get_template_contents(&mut self, target: &Self::Handle) -> Self::Handle {
+        // this template stuff is probably not well done but seems to work
+        match target {
+            Handle::Element(_, _, true) => target.clone(),
+            _ => panic!("not a template element"),
+        }
     }
 
     fn same_node(&self, x: &Self::Handle, y: &Self::Handle) -> bool {

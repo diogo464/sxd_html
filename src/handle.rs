@@ -8,7 +8,8 @@ use crate::util;
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum Handle<'d> {
     Document(Root<'d>),
-    Element(Element<'d>, QualName),
+    // the element, its QualName, flag indicating if this is a template element
+    Element(Element<'d>, QualName, bool),
     Comment(Comment<'d>),
     ProcessingInstruction(ProcessingInstruction<'d>),
     Text(Text<'d>),
@@ -17,7 +18,7 @@ pub enum Handle<'d> {
 impl<'d> Handle<'d> {
     pub fn element_ref(&self) -> &Element<'d> {
         match self {
-            Self::Element(e, _) => e,
+            Self::Element(e, _, _) => e,
             _ => panic!("Handle is not an element"),
         }
     }
@@ -25,7 +26,7 @@ impl<'d> Handle<'d> {
     pub fn parent(&self) -> Option<ParentOfChild<'d>> {
         match self {
             Self::Document(_) => panic!("Cannot call parent on Document"),
-            Self::Element(e, _) => e.parent(),
+            Self::Element(e, _, _) => e.parent(),
             Self::Comment(c) => c.parent(),
             Self::ProcessingInstruction(p) => p.parent(),
             Self::Text(t) => t.parent().map(ParentOfChild::Element),
@@ -35,7 +36,7 @@ impl<'d> Handle<'d> {
     pub fn following_siblings(&self) -> Vec<ChildOfElement<'d>> {
         match self {
             Self::Document(_) => panic!("Cannot call following_siblings on Document"),
-            Self::Element(e, _) => e.following_siblings(),
+            Self::Element(e, _, _) => e.following_siblings(),
             Self::Comment(c) => c.following_siblings(),
             Self::ProcessingInstruction(p) => p.following_siblings(),
             Self::Text(t) => t.following_siblings(),
@@ -45,7 +46,7 @@ impl<'d> Handle<'d> {
     pub fn remove_from_parent(&self) {
         match self {
             Self::Document(_) => panic!("Cannot call remove_from_parent on Document"),
-            Self::Element(e, _) => e.remove_from_parent(),
+            Self::Element(e, _, _) => e.remove_from_parent(),
             Self::Comment(c) => c.remove_from_parent(),
             Self::ProcessingInstruction(p) => p.remove_from_parent(),
             Self::Text(t) => t.remove_from_parent(),
@@ -57,7 +58,7 @@ impl<'d> From<Handle<'d>> for ChildOfRoot<'d> {
     fn from(h: Handle<'d>) -> Self {
         match h {
             Handle::Document(_) => panic!("Handle::Document cannot be made into ChildOfRoot"),
-            Handle::Element(x, _) => x.into(),
+            Handle::Element(x, _, _) => x.into(),
             Handle::Comment(x) => x.into(),
             Handle::ProcessingInstruction(x) => x.into(),
             Handle::Text(_) => panic!("Handle::Text cannot be mande into ChildOfRoot"),
@@ -74,7 +75,7 @@ impl<'d> From<Handle<'d>> for ChildOfElement<'d> {
 impl<'d> From<Element<'d>> for Handle<'d> {
     fn from(e: Element<'d>) -> Self {
         let qualname = util::qualname_from_qname(e.name());
-        Self::Element(e, qualname)
+        Self::Element(e, qualname, false)
     }
 }
 
